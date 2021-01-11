@@ -10,14 +10,21 @@ from selenium.common.exceptions import TimeoutException
 
 output_path = "."
 
-def journal_dissertation_and_citation_count(driver):
+# Statistics output:
+# year_data_point and article_data:
+#  - year_data_point dict contains: article_count, citation_count, reference_count, 
+#  - article_data dict contains: title, author(s), year, reference_count, total_citation, abstract, keywords, type
+# The special dict containing all articles with Chinese authors:
+#  - china_article_data
+
+def journal_statistics(driver):
     year_data_point = {}
     article_data = {}
 
     for i in range(1,28):
         year = 1993 + i
         year_data_point[str(year)] = {}
-        year_data_point[str(year)]["article_count"] = len(driver.find_elements_by_css_selector("table.articleEntry"))
+        year_data_point[str(year)]["article_count"] = 0
         year_data_point[str(year)]["citation_count"] = 0
         year_data_point[str(year)]["reference_count"] = 0
         for j in range(1, 5 if i > 1 else 3):
@@ -59,8 +66,10 @@ def journal_dissertation_and_citation_count(driver):
                 WebDriverWait(driver, timeout=100).until(
                   EC.element_to_be_clickable((By.CSS_SELECTOR, "li.articleMetrics a"))
                 )
+
+                reference_count = 0
                 try:
-                    WebDriverWait(driver, timeout=100).until(
+                    WebDriverWait(driver, timeout=20).until(
                         EC.visibility_of_element_located((By.CSS_SELECTOR, "table.references tbody"))
                     )
                     reference_count = len(driver.find_elements_by_css_selector("table.references tr"))
@@ -68,6 +77,28 @@ def journal_dissertation_and_citation_count(driver):
                     article_data[article_name]["reference_count"] = reference_count
                 except TimeoutException:
                     pass
+
+                article_abstract = ""
+                try:
+                    WebDriverWait(driver, timeout=20).until(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, "div.abstractSection p"))
+                    )
+                    article_abstract = driver.find_element_by_css_selector("div.abstractSection p").text
+                except TimeoutException:
+                    pass
+                
+                keywords = []
+                try:
+                    WebDriverWait(driver, timeout=20).until(
+                        EC.visibility_of_element_located((By.CSS_SELECTOR, "ddiv.abstractKeywords"))
+                    )
+                    keywords = [i.text for i in driver.find_elements_by_css_selector("div.abstractKeywords a")]
+                except TimeoutException:
+                    pass
+                
+                article_data[article_name]["article_type"] = article_type = driver.find_element_by_css_selector("span.ArticleType span").text
+                article_data[article_name]["article_abstract"] = article_abstract
+                article_data[article_name]["keywords"] = keywords
 
                 article_metrics_button = driver.find_element_by_css_selector("li.articleMetrics a")
                 driver.get(article_metrics_button.get_attribute("href"))
@@ -93,10 +124,6 @@ def journal_dissertation_and_citation_count(driver):
         print("Year " + str(year) + " has " + str(year_data_point[str(year)]["article_count"]) + " articles and "
                 + str(year_data_point[str(year)]["citation_count"]) + " citations!")
     return year_data_point
-
-def article_category_count():
-    
-    return 0
 
 def article_keywords_count():
     return 0
