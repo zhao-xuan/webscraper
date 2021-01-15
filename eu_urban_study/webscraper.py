@@ -18,33 +18,41 @@ output_path = "."
 # The special dict containing all articles with Chinese authors:
 #  - china_article_data
 
+black_list = [
+    "Missing Voices/Missing Spaces: Reflections on ‘A New Europe?’",
+    "Harnessing the Information Society? European Union Policy and Information and Communication Technologies"
+]
+
 def journal_statistics(driver, file_article, file_article_read):
     already_processed = file_article_read.read()
-    for i in range(1,28):
+    for i in range(3,28):
         year = 1993 + i
         # year_data_point[str(year)] = {}
         # year_data_point[str(year)]["article_count"] = 0
         # year_data_point[str(year)]["citation_count"] = 0
         # year_data_point[str(year)]["reference_count"] = 0
-        for j in range(1, 5 if i > 1 else 3):
+        for j in range(2, 3):
             driver.get("https://journals.sagepub.com/toc/eura/" + str(i) + "/" + str(j))
             
             print("this is Volume" + str(i) + " issue " + str(j))
             print("Checking the article table entry...")
 
-            WebDriverWait(driver, timeout=100).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "table.articleEntry"))
-            )
-            
+            # WebDriverWait(driver, timeout=100).until(
+            #     EC.presence_of_element_located((By.CSS_SELECTOR, "table.articleEntry"))
+            # )
+            driver.implicitly_wait(20)
+
             article_count = len(driver.find_elements_by_css_selector("table.articleEntry"))
             # year_data_point[str(year)]["article_count"] += article_count
 
             for k in range(0, article_count):
                 article_data = {}
 
+                driver.get("https://journals.sagepub.com/toc/eura/" + str(i) + "/" + str(j))
                 print("Checking the author...")
 
-                WebDriverWait(driver, timeout=100).until(
+                WebDriverWait(driver, timeout=200).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "table.articleEntry")) and
                     EC.presence_of_element_located((By.CSS_SELECTOR, "table.articleEntry div.art_title a")) and
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div.articleEntryAuthor"))
                 )
@@ -77,7 +85,7 @@ def journal_statistics(driver, file_article, file_article_read):
                 reference_count = 0
                 try:
                     print("Checking the table of references...")
-                    WebDriverWait(driver, timeout=20).until(
+                    WebDriverWait(driver, timeout=5).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "table.references tbody"))
                     )
                     reference_count = len(driver.find_elements_by_css_selector("table.references tr"))
@@ -88,20 +96,22 @@ def journal_statistics(driver, file_article, file_article_read):
                 article_abstract = ""
                 try:
                     print("Checking the abstract section...")
-                    WebDriverWait(driver, timeout=15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div.abstractSection p"))
-                    )
-                    article_abstract = driver.find_element_by_css_selector("div.abstractSection p").text
+                    if not article_name in black_list:
+                        WebDriverWait(driver, timeout=5).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, "div.abstractSection p"))
+                        )
+                        article_abstract = driver.find_element_by_css_selector("div.abstractSection p").text
                 except TimeoutException:
                     pass
                 
                 keywords = ""
                 try:
                     print("Checking the keyword section...")
-                    WebDriverWait(driver, timeout=30).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div.abstractKeywords"))
-                    )
-                    keywords = ";".join([i.text for i in driver.find_elements_by_css_selector("div.abstractKeywords a")])
+                    if not article_name in black_list:
+                        WebDriverWait(driver, timeout=5).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, "div.abstractKeywords"))
+                        )
+                        keywords = ";".join([i.text for i in driver.find_elements_by_css_selector("div.abstractKeywords a")])
                 except TimeoutException:
                     pass
                 
@@ -127,26 +137,6 @@ def journal_statistics(driver, file_article, file_article_read):
                 file_article.write("\"" + article_data['title'] + "\"," + article_data['authors'] + "," + str(article_data['year'])
                              + "," + str(article_data['reference_count']) + "," + str(article_data["total_citation"]) + ",\"" + 
                              article_data["article_abstract"] + "\"," + article_data["keywords"] + ",\"" + article_data["article_type"] + "\"\n" )
-                
-                driver.back()
-                driver.back()
-
-                WebDriverWait(driver, timeout=100).until(
-                  EC.presence_of_element_located((By.CSS_SELECTOR, "table.articleEntry div.art_title a"))
-                )
-
-
-def article_keywords_count():
-    return 0
-
-def article_china_related():
-    return 0
-
-def article_china_keyword():
-    return 0
-
-def article_china_info():
-    return 0
 
 if __name__ == "__main__":
     f_article = open("article.csv", "a")
@@ -156,7 +146,7 @@ if __name__ == "__main__":
     # f_article.write("title,authors,year,reference_count,total_citation,abstract,keywords,type\n")
 
     chrome_options = Options()
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
     caps = DesiredCapabilities().CHROME
     caps["pageLoadStrategy"] = "none"
     driver = webdriver.Chrome(desired_capabilities=caps, options=chrome_options)
